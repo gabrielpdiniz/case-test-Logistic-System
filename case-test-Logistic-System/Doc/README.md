@@ -1,180 +1,203 @@
+🔁 Pipeline de Processamento de Pedidos
+
+Este sistema foi projetado para lidar com alto volume de pedidos, processando tudo de forma assíncrona, segura e escalável.
+
+Cada pedido passa por etapas bem definidas, chamadas de processos, onde o sistema valida, garante consistência e evita retrabalho.
+
 🔹 PROCESSO 1 — RECEBIMENTO DOS PEDIDOS (WEBHOOK)
-- O que acontece
+📌 O que acontece
 
-O sistema recebe pedidos de várias plataformas externas (checkout, marketplace, afiliados).
-Essas plataformas não entram no sistema “normalmente”, elas chamam um webhook.
+O sistema recebe pedidos de várias plataformas externas, como:
 
-- Conceito principal
+Checkout
+
+Marketplace
+
+Afiliados
+
+Essas plataformas não acessam o sistema diretamente, elas disparam um webhook com os dados do pedido.
+
+🧠 Conceito principal
 
 Entrada externa e imprevisível de dados.
 
 Você não controla:
 
-quando o pedido chega
+Quando o pedido chega
 
-quantos chegam
+Quantos pedidos chegam ao mesmo tempo
 
-se os dados vêm corretos
+Se os dados estão corretos
 
-- Problema real
+⚠️ Problema real
 
-Em horários específicos, milhares de pedidos podem chegar ao mesmo tempo.
+Em horários de pico, milhares de pedidos podem chegar simultaneamente, o que pode derrubar o sistema se tudo for processado na hora.
 
-- Abordagem correta
+✅ Abordagem correta
 
-Receber o pedido rapidamente
+Receber o pedido o mais rápido possível
 
 Fazer apenas validações mínimas (ex: payload existe)
 
-Não processar nada pesado
+Não executar lógica pesada
 
 Enviar o pedido para processamento assíncrono (fila)
 
-- Objetivo
+🎯 Objetivo
 
-Garantir que o sistema aguente o pico sem cair ou ficar lento.
+Garantir que o sistema aguente picos de tráfego sem cair ou ficar lento.
 
 🔹 PROCESSO 2 — VALIDAÇÃO DO PEDIDO
-- O que acontece
+📌 O que acontece
 
-Depois que o pedido entra, ele não pode seguir se tiver problemas como:
+Depois que o pedido entra no sistema, ele não pode seguir se tiver problemas como:
 
-estoque insuficiente
+Dados incompletos
 
-dados incompletos
+Produto inexistente
 
-produto inexistente
+Informações inconsistentes
 
-- Conceito principal
+🧠 Conceito principal
 
 Validação de regras de negócio.
 
 Aqui o sistema decide:
-- esse pedido é válido ou não?
 
-- Problema real
+👉 Esse pedido é válido ou não?
+
+⚠️ Problema real
 
 Confiar cegamente nos dados externos pode:
 
-gerar erro interno
+Gerar erros internos
 
-vender produto inexistente
+Vender produtos inexistentes
 
-quebrar estoque
+Quebrar a lógica de estoque
 
-- Abordagem correta
+✅ Abordagem correta
 
 Validar campos obrigatórios
 
 Verificar se o produto existe
 
-Conferir se faz sentido continuar
+Conferir se o pedido faz sentido
 
-Tudo isso fora da requisição, em background.
+Executar tudo fora da requisição, em background
 
-- Objetivo
+🎯 Objetivo
 
 Bloquear pedidos inválidos antes de consumir recursos do sistema.
 
 🔹 PROCESSO 3 — GARANTIA DE ESTOQUE (CONCORRÊNCIA)
-- O que acontece
+📌 O que acontece
 
-O pedido passou na validação, agora precisamos garantir estoque.
+O pedido passou na validação.
+Agora o sistema precisa garantir que existe estoque disponível.
 
-- Conceito principal
+🧠 Conceito principal
 
 Concorrência.
 
 Vários pedidos do mesmo produto podem chegar ao mesmo tempo.
 
-- Problema real
+⚠️ Problema real
 
-Se dois pedidos checam estoque ao mesmo tempo:
+Se dois pedidos verificam o estoque simultaneamente:
 
-ambos veem “1 unidade disponível”
+Ambos veem “1 unidade disponível”
 
-ambos tentam vender
+Ambos tentam vender
 
-estoque fica negativo
+O estoque fica negativo ❌
 
-- Abordagem correta
+✅ Abordagem correta
 
-Garantir o estoque imediatamente após validação
+Garantir o estoque imediatamente após a validação
 
-Reservar ou baixar estoque
+Reservar ou baixar o estoque
 
-Se não conseguir → pedido falha
+Se não conseguir reservar → pedido falha
 
-- Objetivo
+🎯 Objetivo
 
 Evitar venda duplicada e inconsistência de dados.
 
 🔹 PROCESSO 4 — COTAÇÃO DE FRETE
-- O que acontece
+📌 O que acontece
 
-Com o pedido validado e estoque garantido, o sistema chama:
+Com o pedido validado e o estoque garantido, o sistema consulta:
 
-várias transportadoras externas
+APIs de transportadoras
 
-APIs de frete
+Serviços externos de frete
 
-- Conceito principal
+🧠 Conceito principal
 
 Integração com serviços externos.
 
-- Problema real
+⚠️ Problema real
 
 APIs externas são lentas
 
-podem falhar
+Podem falhar
 
-custam tempo e dinheiro
+Custam tempo e dinheiro
 
-- Abordagem correta
+✅ Abordagem correta
 
-Só cotar frete depois que o pedido é válido
+Cotar frete apenas após validação e estoque garantido
 
 Evitar chamadas desnecessárias
 
-Escolher a melhor opção
+Escolher a melhor opção disponível
 
-- Objetivo
+🎯 Objetivo
 
-Usar recursos externos apenas quando o pedido está garantido.
+Usar recursos externos somente quando o pedido está garantido.
 
 🔹 PROCESSO 5 — EMISSÃO DE ETIQUETA E GERAÇÃO DE PDF
-- O que acontece
+📌 O que acontece
 
-Depois da escolha da transportadora:
+Após a escolha da transportadora:
 
-emitir etiqueta
+Emitir etiqueta
 
-gerar PDF
+Gerar PDF
 
-armazenar arquivos
+Armazenar os arquivos
 
-- Conceito principal
+🧠 Conceito principal
 
 Processamento pesado e persistência.
 
-- Problema real
+⚠️ Problema real
 
 Geração de PDF é lenta
 
-envolve I/O
+Envolve I/O (disco, storage, rede)
 
-não deve ser refeita se algo falhar antes
+Não deve ser refeita se algo falhar antes
 
-- Abordagem correta
+✅ Abordagem correta
 
-Essa etapa só acontece no final
+Executar essa etapa somente no final
 
-Pedido já está validado
+Pedido já validado
 
 Estoque garantido
 
 Frete definido
 
-- Objetivo
+🎯 Objetivo
 
-Finalizar o pedido com segurança, sem retrabalho.
+Finalizar o pedido com segurança, sem retrabalho e com consistência total.
+
+Se quiser, no próximo passo eu posso:
+
+📊 Transformar isso em diagrama de fluxo
+
+🧱 Mapear isso direto para Jobs / Estados do Pedido
+
+📝 Ajustar o texto para um README mais técnico ou mais didático
